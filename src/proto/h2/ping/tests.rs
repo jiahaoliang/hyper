@@ -28,7 +28,9 @@ impl Timer for TestTimer {
     }
 
     fn sleep_until(&self, deadline: Instant) -> Pin<Box<dyn Sleep>> {
-        Box::pin(TestSleep(Box::pin(tokio::time::sleep_until(deadline.into()))))
+        Box::pin(TestSleep(Box::pin(tokio::time::sleep_until(
+            deadline.into(),
+        ))))
     }
 }
 
