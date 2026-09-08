@@ -415,6 +415,35 @@ where
         self
     }
 
+    /// Sets the keep-alive PING acknowledgement timeout for stopping reuse.
+    ///
+    /// On expiry, the observer installed with [`Self::keep_alive_observer`] is
+    /// notified once. Hyper itself does not prevent new requests or close the
+    /// connection; the observer should retire it from the caller's connection
+    /// pool. Existing streams retain the original keep-alive timeout. A late
+    /// ACK does not undo the notification.
+    ///
+    /// Defaults to `None` (disabled). Does nothing when keep-alive is disabled.
+    /// When keep-alive is enabled, a configured duration must be greater than
+    /// zero and less than [`Self::keep_alive_timeout`]; otherwise `handshake`
+    /// panics. Validation uses the final configuration, regardless of setter order.
+    pub fn keep_alive_reuse_timeout(&mut self, timeout: Option<Duration>) -> &mut Self {
+        self.h2_builder.keep_alive_reuse_timeout = timeout;
+        self
+    }
+
+    /// Sets the observer for the keep-alive reuse timeout on new connections.
+    ///
+    /// Install a separate observer for each connection when retiring individual
+    /// pool entries. The observer must be nonblocking and must not panic.
+    pub fn keep_alive_observer(
+        &mut self,
+        observer: impl crate::rt::KeepAliveObserver + 'static,
+    ) -> &mut Self {
+        self.h2_builder.keep_alive_observer = Some(Arc::new(observer));
+        self
+    }
+
     /// Sets whether HTTP2 keep-alive should apply while the connection is idle.
     ///
     /// If disabled, keep-alive pings are only sent while there are open
@@ -481,6 +510,14 @@ where
         B::Error: Into<Box<dyn Error + Send + Sync>>,
         Ex: Http2ClientConnExec<B, T> + Unpin,
     {
+        if self.h2_builder.keep_alive_interval.is_some() {
+            if let Some(timeout) = self.h2_builder.keep_alive_reuse_timeout {
+                assert!(
+                    timeout > Duration::ZERO && timeout < self.h2_builder.keep_alive_timeout,
+                    "keep_alive_reuse_timeout must be greater than zero and less than keep_alive_timeout"
+                );
+            }
+        }
         let opts = self.clone();
 
         async move {

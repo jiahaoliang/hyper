@@ -20,6 +20,17 @@ mod timer;
 pub use self::io::{Read, ReadBuf, ReadBufCursor, Write};
 pub use self::timer::{Sleep, Timer};
 
+/// Receives a one-way notification that an HTTP/2 connection should stop being reused.
+///
+/// Implementations must return promptly and must not block or panic. Hyper calls
+/// the observer at most once per connection, outside its internal PING lock.
+/// The observer must not retain the connection or its request sender.
+/// Notification does not close the connection or cancel existing streams.
+pub trait KeepAliveObserver: std::fmt::Debug + Send + Sync {
+    /// The keep-alive PING exceeded the configured reuse timeout without an ACK.
+    fn on_reuse_timeout(&self);
+}
+
 /// An executor of futures.
 ///
 /// This trait allows Hyper to abstract over async runtimes. Implement this trait for your own type.

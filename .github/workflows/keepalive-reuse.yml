@@ -1,0 +1,26 @@
+name: Keepalive reuse regression
+on:
+  push:
+    branches: [feat/h2-keepalive-reuse-timeout]
+  pull_request:
+    branches: [upstream/v1.8.1]
+permissions:
+  contents: read
+jobs:
+  regression:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - run: cargo test --features full --lib
+      - run: cargo check --no-default-features --features client,http2
+      - run: cargo check --no-default-features --features server,http2
+      - run: cargo check --no-default-features --features client,http1
+      - name: Check changed Rust formatting
+        run: |
+          rustfmt --edition 2021 src/rt/mod.rs src/client/conn/http2.rs src/proto/h2/client.rs src/proto/h2/server.rs src/proto/h2/ping.rs
+          git diff --exit-code
